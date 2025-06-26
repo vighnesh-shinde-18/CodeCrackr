@@ -58,12 +58,10 @@ export default function HistoryDialog({ open, setOpen }) {
         const data = await res.json();
         return data.success ? data.data : [];
       } else {
-        const res = await fetch(`${INTERACTIONS_URL}/by-feature`, {
-          method: "GET", // ✅ changed from GET to POST
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ featureType: feature }), // ✅ send key not label
-        });
+        const res = await fetch(`${INTERACTIONS_URL}/by-feature?featureType=${feature}`, {
+  method: "GET",
+  credentials: "include",
+});
         const data = await res.json();
         return data.success ? data.data : [];
       }
