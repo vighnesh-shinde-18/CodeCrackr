@@ -23,7 +23,6 @@ import { MoreVertical, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import axios from "axios";
 import ViewHistoryDialog from "./ViewHistoryDialog";
 
 const typeToName = {
@@ -35,87 +34,85 @@ const typeToName = {
   generateTestCases: "Generate Test Cases",
 };
 
+const featureOptions = [
+  { key: "all", label: "All Features" },
+  ...Object.entries(typeToName).map(([key, label]) => ({ key, label })),
+];
+
 export default function HistoryDialog({ open, setOpen }) {
   const [interactions, setInteractions] = useState([]);
+  const [selectedFeature, setSelectedFeature] = useState("all");
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
-  const [selectedFeature, setSelectedFeature] = useState("all");
-
 
   const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const AI_INTERACTIONS_URL = `${BASE_URL}/api/ai/interactions`;
+  const INTERACTIONS_URL = `${BASE_URL}/api/ai/interactions`;
 
-  const fetchInteraction = async (feature = "all") => {
+  const fetchInteractions = async (feature = "all") => {
     try {
-      if (feature === "all") {
-        const res = await fetch(AI_INTERACTIONS_URL, {
-          method: "GET",
-          credentials: "include",
-        });
-        const data = await res.json();
-        if (data.success) return data.data;
-      } else {
-        const res = await fetch(`${AI_INTERACTIONS_URL}/by-feature`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ featureType: feature }),
-        });
-        const data = await res.json();
-        if (data.success) return data.data;
-      }
-    } catch (err) {
-      console.error("Error fetching interaction:", err);
-    }
-    return [];
-  };
+      const endpoint =
+        feature === "all"
+          ? INTERACTIONS_URL
+          : `${INTERACTIONS_URL}/by-feature`;
 
+      const options =
+        feature === "all"
+          ? {
+              method: "GET",
+              credentials: "include",
+            }
+          : {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ featureType: feature }),
+            };
 
-  const handleView = (item) => {
-    setSelectedId(item._id);
-    setViewDialogOpen(true);
-  };
-
-  const handleDeleteAll = async () => {
-    try {
-      await axios.delete(AI_INTERACTIONS_URL, {
-        withCredentials: true,
-      });
-      toast.success("All history deleted!");
-      const updated = await fetchInteraction();
-      setInteractions(updated);
+      const res = await fetch(endpoint, options);
+      const data = await res.json();
+      return data.success ? data.data : [];
     } catch (error) {
-      console.error("Error deleting all history:", error);
-      toast.error("Failed to delete history.");
+      console.error("Failed to fetch interactions:", error);
+      return [];
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(`${AI_INTERACTIONS_URL}/${id}`, {
+      const res = await fetch(`${INTERACTIONS_URL}/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Deleted history entry");
-        const updated = await fetchInteraction();
+        toast.success("Entry deleted");
+        const updated = await fetchInteractions(selectedFeature);
         setInteractions(updated);
       }
-    } catch (err) {
-      console.error("Error deleting conversation:", err);
-      toast.error("Failed to delete entry.");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    try {
+      await fetch(INTERACTIONS_URL, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      toast.success("All history cleared");
+      const updated = await fetchInteractions(selectedFeature);
+      setInteractions(updated);
+    } catch {
+      toast.error("Failed to clear history");
     }
   };
 
   useEffect(() => {
     if (open) {
-      fetchInteraction(selectedFeature).then(setInteractions);
+      fetchInteractions(selectedFeature).then(setInteractions);
     }
   }, [open, selectedFeature]);
-
 
   return (
     <>
@@ -127,15 +124,17 @@ export default function HistoryDialog({ open, setOpen }) {
               View and manage your previous feature conversations.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Filter Dropdown */}
           <div className="flex justify-end mb-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="text-sm">
-                  {featureTypes.find((f) => f.key === selectedFeature)?.label}
+                  {featureOptions.find((f) => f.key === selectedFeature)?.label}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {featureTypes.map((feature) => (
+                {featureOptions.map((feature) => (
                   <DropdownMenuItem
                     key={feature.key}
                     onClick={() => setSelectedFeature(feature.key)}
@@ -147,7 +146,8 @@ export default function HistoryDialog({ open, setOpen }) {
             </DropdownMenu>
           </div>
 
-          <div className="overflow-x-auto max-h-[60vh] mt-2 sm:mt-4">
+          {/* History Table */}
+          <div className="overflow-x-auto max-h-[60vh]">
             <Table className="min-w-[600px] sm:min-w-full">
               <TableHeader>
                 <TableRow>
@@ -158,37 +158,37 @@ export default function HistoryDialog({ open, setOpen }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {interactions.map((item) => {
-                  const aiOutput = item.aiOutput || {};
-                  return (
-                    <TableRow key={item._id}>
-                      <TableCell>{typeToName[item.featureType] || "Unknown"}</TableCell>
-                      <TableCell className="truncate">
-                        {aiOutput.title || "No title"}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {item.createdAt?.slice(0, 10) || "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="p-1 h-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleView(item)}>
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(item._id)}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {interactions.map((item) => (
+                  <TableRow key={item._id}>
+                    <TableCell>{typeToName[item.featureType] || "Unknown"}</TableCell>
+                    <TableCell className="truncate">
+                      {item.aiOutput?.title || "No title"}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {item.createdAt?.slice(0, 10) || "N/A"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="p-1 h-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedId(item._id);
+                            setViewDialogOpen(true);
+                          }}>
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(item._id)}>
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -205,6 +205,7 @@ export default function HistoryDialog({ open, setOpen }) {
         </DialogContent>
       </Dialog>
 
+      {/* View Dialog */}
       <ViewHistoryDialog
         open={viewDialogOpen}
         onClose={() => setViewDialogOpen(false)}
