@@ -50,27 +50,23 @@ export default function HistoryDialog({ open, setOpen }) {
 
   const fetchInteractions = async (feature = "all") => {
     try {
-      const endpoint =
-        feature === "all"
-          ? INTERACTIONS_URL
-          : `${INTERACTIONS_URL}/by-feature`;
-
-      const options =
-        feature === "all"
-          ? {
-              method: "GET",
-              credentials: "include",
-            }
-          : {
-              method: "GET",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify({ featureType: feature }),
-            };
-
-      const res = await fetch(endpoint, options);
-      const data = await res.json();
-      return data.success ? data.data : [];
+      if (feature === "all") {
+        const res = await fetch(INTERACTIONS_URL, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await res.json();
+        return data.success ? data.data : [];
+      } else {
+        const res = await fetch(`${INTERACTIONS_URL}/by-feature`, {
+          method: "GET", // ✅ changed from GET to POST
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ featureType: feature }), // ✅ send key not label
+        });
+        const data = await res.json();
+        return data.success ? data.data : [];
+      }
     } catch (error) {
       console.error("Failed to fetch interactions:", error);
       return [];
@@ -175,10 +171,12 @@ export default function HistoryDialog({ open, setOpen }) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedId(item._id);
-                            setViewDialogOpen(true);
-                          }}>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedId(item._id);
+                              setViewDialogOpen(true);
+                            }}
+                          >
                             View
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDelete(item._id)}>
