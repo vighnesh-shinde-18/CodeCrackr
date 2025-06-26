@@ -28,7 +28,6 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 
-
 const allowedOrigins = process.env.FRONTEND_URL;
 
 console.log("Allowed Origins:", allowedOrigins);
