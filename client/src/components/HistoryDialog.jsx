@@ -62,7 +62,7 @@ export default function HistoryDialog({ open, setOpen }) {
               credentials: "include",
             }
           : {
-              method: "POST",
+              method: "GET",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
               body: JSON.stringify({ featureType: feature }),
