@@ -16,7 +16,7 @@ exports.getAllInteractions = async (req, res, next) => {
 
 exports.getInteractionByFeatureType = async (req, res, next) => {
   try {
-    const { featureType } = req.body;
+    const { featureType } = req.query;
     const interactions = await DSAInteraction.find({ userId: req.user.id, featureType: featureType }).sort({ createdAt: -1 });
 
     res.status(200).json({
